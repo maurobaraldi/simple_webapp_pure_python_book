@@ -1,59 +1,26 @@
-#!/usr/bin/env python
-# Reflects the requests from HTTP methods GET, POST, PUT, and DELETE
-# Written by Nathan Hamiel (2010)
-
-#from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from optparse import OptionParser
 
-class RequestHandler(BaseHTTPRequestHandler):
-    
+from io import BytesIO
+
+
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+
     def do_GET(self):
-        
-        request_path = self.path
-        
-        print("\n----- Request Start ----->\n")
-        print(request_path)
-        print(self.headers)
-        print("<----- Request End -----\n")
-        
         self.send_response(200)
-        self.send_header("Set-Cookie", "foo=bar")
         self.end_headers()
-        self.wfile.write(b"")
-        
-    def do_POST(self):
-        
-        request_path = self.path
-        
-        print("\n----- Request Start ----->\n")
-        print(request_path)
-        
-        request_headers = self.headers
-        content_length = request_headers.getheaders('content-length')
-        length = int(content_length[0]) if content_length else 0
-        
-        print(request_headers)
-        print(self.rfile.read(length))
-        print("<----- Request End -----\n")
-        
-        self.send_response(200)
-    
-    do_PUT = do_POST
-    do_DELETE = do_GET
-        
-def main():
-    port = 8080
-    print('Listening on localhost:%s' % port)
-    server = HTTPServer(('', port), RequestHandler)
-    server.serve_forever()
+        self.wfile.write(b'Hello, world!')
 
-        
-if __name__ == "__main__":
-    #parser = OptionParser()
-    #parser.usage = ("Creates an http-server that will echo out any GET or POST parameters\n"
-    #                "Run:\n\n"
-    #                "   reflect")
-    #(options, args) = parser.parse_args()
-    
-    main()
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        self.send_response(200)
+        self.end_headers()
+        response = BytesIO()
+        response.write(b'This is POST request. ')
+        response.write(b'Received: ')
+        response.write(body)
+        self.wfile.write(response.getvalue())
+
+
+httpd = HTTPServer(('localhost', 8080), SimpleHTTPRequestHandler)
+httpd.serve_forever()
