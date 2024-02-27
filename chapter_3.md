@@ -84,6 +84,131 @@ $ curl -v -H "Content-Type: text/plain" http://127.0.0.1:8080
 Missing header "API-Key"
 * Closing connection 0
 
-## Headers in response
+### Headers in response
 
-To add headers to response we can use the method `send_`
+In order To add headers to response we should use the method [`send_headers`](https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler.send_header), passing the key and the value of header as parameter, that appends this header to an internal buffer (like a collection of headers) and it is sent with the response body after the call of  [`end_headers`](https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler.end_header).
+
+One common example of use of headers in response is in the pagination of of content in APIs. Each request can return a limited amount of registries, but the query that originated that request may return mor values than it is designed to return. So, application adds a header that specify which set of registries, page, is that one, and so we can run the next request from the next page.
+
+In the example below the application will add a custom header to response.
+
+Example 3-2
+
+```
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+
+        def do_GET(self):
+            if self.headers.get('API-Key'):
+                self.send_response(200)
+                self.send_header("Custom-header","Test")
+                self.end_headers()
+                self.wfile.write(b'Hello, world!\n')
+            else:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'Missing header "API-Key"\n')
+
+if __name__ == "__main__":
+    server = HTTPServer(('', 8080), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+```
+This should be the response
+
+```
+$ curl -v -H "API-Key: text/plain" http://127.0.0.1:8080
+…
+* Mark bundle as not supporting multiuse
+* HTTP 1.0, assume close after body
+< HTTP/1.0 200 OK
+< Server: BaseHTTP/0.6 Python/3.8.10
+< Date: Tue, 20 Feb 2024 19:27:12 GMT
+< Custom-header: Test
+< 
+Hello, world!
+* Closing connection 0
+```
+
+Although HTTP headers are very important and useful they are simple to build and handle with. At this point, the decision to build something simple using standard **http** lib and use a mature solution (web framework) comes. 
+
+Handle with headers are pretty simple but as soon the solution become more complex more features you may need to add to headers, combining also with the next topic of this chapter, Routing.
+
+## Routing
+
+Design a good routing engine is a really challenging endeavor. The rules for the using aren’t much complex, even though it follows a standard commonly known as URL or URI (Uniform Resource Identifiers).
+
+We won’t approach advanced concepts of routing like regex, right now. This chapter will focus on present a simple solution of how to handle with routing in with our simple  examples. In the appendix XXX - Other Examples, you can find and example of a routing engine with regex.
+
+### Basic URI
+
+The URI is a part of the request, and can be accessed by the attribute path. In the following example we can see a simple way to handle the routing.
+
+Example 3-3
+
+```
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+
+        def do_GET(self):
+            if self.path == “/foo”:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b’Endpoint: /foo\n')
+            elif self.path == “/bar”:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b’Endpoint: /bar\n')
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+if __name__ == "__main__":
+    server = HTTPServer(('', 8080), SimpleHTTPRequestHandler)
+    server.serve_forever()
+```
+
+The `self.path` compares the value to `/foo` because the path starts from `/`,  so everything in the `self.path`, including the query, should be parsed by the application. If we do not set the response for the 404, it will send an empty reply from server.
+
+The next example will handle with the query from the URI.
+
+Warning: This is not a very elegant solution and was done consciously. In the end of the appendix, there will be a more elegant solution to parse routes and query.
+
+```
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+
+        def do_GET(self):
+            if self.path.startswith(“/foo”):
+                if self.path.contains(“?”):
+                    query = self.path.split(“?”)[1]
+                    query = [i.split(“=“) for i in query.split(“&”)]
+                    print(query)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b’Endpoint: /foo\n')
+            elif self.path == “/bar”:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b’Endpoint: /bar\n')
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+if __name__ == "__main__":
+    server = HTTPServer(('', 8080), SimpleHTTPRequestHandler)
+    server.serve_forever()
+```
+
+As we are creating an application, from scratch, using the HTTP stack library, some situations are not already resolved so need to be created, like the URI query parameters.
+
+One painful situation here would be to have multiples methods associated to an URI, that we will need to, using this approach, rewrite some part of the logic to other methods. But the purpose here is to write simple applications and will not complicate the scenarios.
+
+## Conclusion
+
